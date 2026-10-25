@@ -296,7 +296,62 @@ export function phaseGeometry(lit: number): PhaseGeometry {
   };
 }
 
+/**
+ * How far the terminator's edge is feathered, in disc diameters — the standard
+ * deviation of the blur that ends the lit face.
+ *
+ * The terminator is not a line on a real moon. What the eye reads as its edge is
+ * where the light *runs out* along it: grazing the ground, so brightness goes to
+ * zero smoothly rather than stepping, and crater rims catch the last of it
+ * unevenly. Cut as a clip alone, the phase ended in one step from the lit face's
+ * 97 luma to the night face's 34 — a seam laid across the disc.
+ *
+ * The feather has to follow the phase's own ellipse. A straight gradient along
+ * the light's axis is the tempting shortcut — brightness on a sphere does depend
+ * only on the coordinate along that axis — but its *end* is a straight line, and
+ * on a crescent that line crosses the lune and shows as exactly that: a straight
+ * edge where the moon had a curve. Blurring the mask's own path instead keeps the
+ * geometry: the curve is softened, never straightened.
+ *
+ * 1.2% of the disc is about 4px at 322px, so the surface runs out over roughly
+ * 10px — the width a photograph shows, and far too narrow to become a gradient
+ * ball.
+ */
+export const MOON_TERMINATOR_FEATHER = 0.012;
+
+/**
+ * The lit fraction at which the feather reaches its full width.
+ *
+ * The feather is measured from the terminator toward the light, so on a thin lune
+ * it is measured against very little: at 2% lit the whole crescent is 2% of the
+ * disc wide, and a full-width blur would soften most of it away — early in a
+ * session the moon had no crescent to grow from, which is the one thing a phase
+ * must never be without. Below a third lit the feather is therefore scaled by
+ * `k / 0.35`; above it, the full `MOON_TERMINATOR_FEATHER`.
+ */
+export const MOON_TERMINATOR_FULL_LIT = 0.35;
+
 /** Air between the progress ring and the orbit arc that circles it. */
+
+/**
+ * The blur radius the lit face is feathered by at a given phase, in disc
+ * diameters — the units a mask's `viewBox` is drawn in.
+ *
+ * Tapered twice, for the same reason the band was: by the phase (`sin`,
+ * square-rooted so a three-quarter moon still shows a falloff), because at full
+ * and new the terminator sits on the limb where a feather would only dull the
+ * sphere's own edge; and by the lune's own width (`k / 0.35`), because a
+ * crescent thinner than the feather would otherwise be blurred out of existence.
+ * Zero means no mask at all, which is what the two ends of the cycle want.
+ */
+export function terminatorFeather(lit: number): number {
+  const k = Math.min(1, Math.max(0, lit));
+  const share = Math.min(
+    Math.sqrt(Math.sin(Math.PI * k)),
+    k / MOON_TERMINATOR_FULL_LIT,
+  );
+  return MOON_TERMINATOR_FEATHER * share;
+}
 export const ORBIT_GAP = 26;
 
 /**

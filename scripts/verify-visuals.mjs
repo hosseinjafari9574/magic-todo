@@ -493,7 +493,14 @@ function readFocusRoom() {
         scrimCentre: scrimCentre ? Number(scrimCentre[1]) : null,
         /* The far-limb shade, and that it rides inside the clipped lit layer. */
         limbShade: Number(/rgba\(2, 4, 9, ([\d.]+)\) 92%/.exec(gradient)?.[1]),
-        shadeClipped: Boolean(shade && shade.parentElement?.getAttribute("data-part") === "lit"),
+        /*
+         * The shade sits one level deeper than it used to: the lit layer now
+         * wraps it in the terminator's own fading band (`data-part="terminator"`,
+         * a mask), so the clip is an ancestor rather than the parent. Same
+         * assertion — the shade is under the clip that cuts the phase — read up
+         * the tree.
+         */
+        shadeClipped: Boolean(shade?.closest('[data-part="lit"]')?.style.clipPath),
         /* Whether the surface, not just its wrapper, is a photograph. */
         painted: Boolean(surface && getComputedStyle(surface).backgroundImage !== "none"),
       },

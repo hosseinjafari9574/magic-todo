@@ -18,6 +18,7 @@ import {
   MOON_TEXTURE_URL,
   PHASE_RADIUS,
   phaseGeometry,
+  terminatorFeather,
 } from "@/components/focus/geometry";
 import { cn } from "@/lib/utils";
 
@@ -206,6 +207,33 @@ export function MoonBody({
    */
   const light = shownFlip ? MOON_LIGHT_TURNED : MOON_LIGHT;
   const { angle } = phaseGeometry(shownLit);
+  /*
+   * The lit face's last of the light: the *same* path the clip uses, blurred into
+   * a mask, so the surface runs out at the terminator instead of ending on it.
+   *
+   * The path matters. A straight gradient along the light's axis is the tempting
+   * shortcut — a sphere's brightness really does depend only on the coordinate
+   * along that axis — but a straight ramp ends on a *straight line*, and on a
+   * crescent that line crosses the lune: the moon showed a cut instead of a
+   * curve. Blurring the phase's own ellipse cannot do that: the curve is softened,
+   * never straightened.
+   *
+   * It is a mask on the lit layer and not a `filter` on it, so the limb keeps its
+   * hard edge: the clip still cuts the exact shape, and the blur only ever
+   * softens the seam inside it. `terminatorFeather` closes the feather to nothing
+   * at full and new moon, and thins it on a lune narrower than itself.
+   */
+  const feather = terminatorFeather(shownLit);
+  const terminatorMask =
+    feather > 0.0002
+      ? `url("data:image/svg+xml,${encodeURIComponent(
+          `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1" preserveAspectRatio="none"><defs><filter id="f" x="-0.2" y="-0.2" width="1.4" height="1.4"><feGaussianBlur stdDeviation="${feather.toFixed(4)}"/></filter></defs><path d="${litPath(
+            shownLit,
+          )}" fill="#fff" filter="url(#f)" transform="rotate(${(
+            angle + (shownFlip ? 180 : 0)
+          ).toFixed(2)} 0.5 0.5)"/></svg>`,
+        )}")`
+      : undefined;
   return (
     <div
       data-part="disc"
@@ -272,21 +300,34 @@ export function MoonBody({
         style={{ clipPath: `url(#${clipId})` }}
       >
         <div
-          data-part="surface"
+          data-part="terminator"
           className="absolute inset-0"
           style={{
-            backgroundImage: `url("${MOON_TEXTURE_URL}")`,
-            backgroundSize: "100% 100%",
-            filter: `brightness(${MOON_LIT_BRIGHTNESS}) contrast(${MOON_LIT_CONTRAST})`,
+            maskImage: terminatorMask,
+            maskSize: "100% 100%",
+            maskRepeat: "no-repeat",
+            WebkitMaskImage: terminatorMask,
+            WebkitMaskSize: "100% 100%",
+            WebkitMaskRepeat: "no-repeat",
           }}
-        />
-        <div
-          data-part="shade"
-          className="absolute inset-0"
-          style={{
-            background: `radial-gradient(circle at ${light.x}% ${light.y}%, rgba(236,240,255,0.055), rgba(236,240,255,0) 46%), radial-gradient(circle at ${light.x}% ${light.y}%, transparent 34%, rgba(2,4,9,${MOON_LIMB_SHADE}) 92%)`,
-          }}
-        />
+        >
+          <div
+            data-part="surface"
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `url("${MOON_TEXTURE_URL}")`,
+              backgroundSize: "100% 100%",
+              filter: `brightness(${MOON_LIT_BRIGHTNESS}) contrast(${MOON_LIT_CONTRAST})`,
+            }}
+          />
+          <div
+            data-part="shade"
+            className="absolute inset-0"
+            style={{
+              background: `radial-gradient(circle at ${light.x}% ${light.y}%, rgba(236,240,255,0.055), rgba(236,240,255,0) 46%), radial-gradient(circle at ${light.x}% ${light.y}%, transparent 34%, rgba(2,4,9,${MOON_LIMB_SHADE}) 92%)`,
+            }}
+          />
+        </div>
       </div>
 
       {/*

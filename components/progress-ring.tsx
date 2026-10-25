@@ -94,6 +94,38 @@ export function ProgressRing({
               }}
             />
           </linearGradient>
+          {/*
+           * The arc's glow, as an SVG filter with its own region.
+           *
+           * It used to be `filter: drop-shadow(0 0 12px …)` on the arc, and
+           * that filter's region is the element's bounding box plus ten
+           * percent — a *square*, since a circle's box is square. The shadow's
+           * tail was cut off at those four straight edges and filled the box
+           * on the way, so the glow read as blue patches sitting around the
+           * disc along the arc, with the box's corners showing where it ended
+           * (`docs` measurement: `.freebuff/measure-ring.mjs` — the halo
+           * reached 14px past the stroke at 45° and 135° while stopping dead
+           * at the box edge on the axes). Enlarged here so the falloff ends on
+           * its own, as light, rather than on a straight line. `stdDeviation`
+           * is in the referencing svg's own units, so the glow is the same
+           * weight of light on the card's 216px dial and the room's larger one.
+           */}
+          <filter
+            id={`ring-glow-${tone}`}
+            x="-30%"
+            y="-30%"
+            width="160%"
+            height="160%"
+            colorInterpolationFilters="sRGB"
+          >
+            <feDropShadow
+              dx="0"
+              dy="0"
+              stdDeviation="6"
+              floodColor={colors.solid}
+              floodOpacity="0.42"
+            />
+          </filter>
         </defs>
 
         {/* Graduations — they light up as the arc passes them. */}
@@ -182,10 +214,10 @@ export function ProgressRing({
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
+          filter={`url(#ring-glow-${tone})`}
           style={
             {
               transition: "stroke-dashoffset 240ms linear",
-              filter: `drop-shadow(0 0 12px rgba(${colors.rgb},0.4))`,
             } as CSSProperties
           }
         />

@@ -102,6 +102,7 @@ and desktop at 1280×900).
 | `MOON_NIGHT_FALLOFF` | 0.66 | earthshine **37** luma at 0.56R → **25** at 0.86R on the phone; **38 → 29** on the desktop's 322px disc: a fall of about **9–12** luma across the unlit half |
 | `MOON_LIMB_SHADE` | 0.55 | night limb falls **13–14** luma from 0.68R to 0.92R |
 | `MOON_SCRIM_OPACITY` | 0.55 | clock contrast **7.9:1** at full moon (9.8:1 on desktop) |
+| `MOON_TERMINATOR_FEATHER` | 0.012 | the lit face runs out over **~10px** of a 322px disc, following the terminator's own curve (was one hard step) |
 
 - **0.62 brightness** puts the disc under the reading. At full moon the clock sits
   on the brightest surface the room ever shows, and the type is white; anything
@@ -136,6 +137,20 @@ and desktop at 1280×900).
   position, so the disc turns away at the far edge instead of ending as a cut-out
   poster of a moon. It rides *inside* the clipped lit layer, so it moves with the
   phase rather than sitting on the whole disc.
+- **0.012 terminator feather** is the surface's last of the light, as a blur
+  radius in disc diameters (about 4px on the 322px disc, so the surface runs out
+  over roughly 10px). The terminator is not a line on a real moon: the light
+  grazes the ground there, so brightness goes to zero smoothly and crater rims
+  catch the last of it unevenly. Cut as a clip alone, the phase ended in one step
+  from the lit face's 97 luma to the night face's 34 — a seam laid across the
+  disc. The feather is scaled twice (`terminatorFeather`): by the phase, because
+  at full and new the terminator has left the visible face and a feather there
+  would only dull the sphere's own edge; and by the lune's own width below a
+  third lit (`MOON_TERMINATOR_FULL_LIT`), because a blur wider than a hairline
+  crescent blurs it away — early in a session the moon had no crescent to grow
+  from. The moon's lit width along the light's axis is exactly `k` of the disc,
+  so the share is `k / 0.35`: a third of the lune at its thinnest, the full
+  feather once the crescent is wide enough to carry it.
 - **0.55 scrim** is a soft, centred darkening under the clock, fading out by 46% of
   the disc where the maria begin reading again. It is a paint, not a second moon,
   and it is constant: the phase must not also move the light the type sits on.
@@ -150,8 +165,9 @@ and desktop at 1280×900).
   svg                       the clipPath definition (objectBoundingBox)
   [data-part="night"]       the texture at 13%, contrast-lifted, masked to 66% at the limb
   [data-part="lit"]         clip-path: url(#…)
-    [data-part="surface"]   the texture, brightness/contrast filtered
-    [data-part="shade"]     highlight + far-limb falloff
+    [data-part="terminator"] mask: the lit face's last of the light
+      [data-part="surface"]  the texture, brightness/contrast filtered
+      [data-part="shade"]    highlight + far-limb falloff
   [data-part="scrim"]       the paint under the clock
 ```
 
@@ -162,6 +178,21 @@ and desktop at 1280×900).
 - **The clip is still the exact terminator.** `litPath` is unchanged; it is the
   great-circle ellipse through both poles whose waist is `|2k − 1|` of the radius
   (`phaseGeometry`). The surface swap bought texture, not a new shape.
+- **The clip is the shape; the mask is the light.** `litPath` cuts the phase to
+  the pixel, and the layer inside it carries a mask built from the *same path*,
+  blurred by `terminatorFeather` and handed over as an SVG data URI (with
+  `mask-size: 100% 100%`, so it follows the disc at every instrument size). Blurring
+  the path rather than fading along the light's axis is the whole point: a
+  straight ramp's end is a straight line, and on a crescent that line crosses the
+  lune — it showed as a cut across the moon where the phase had a curve. The
+  path's own blur softens the curve without ever straightening it.
+- **The feather is on a child, not on the clipped layer.** `filter` + `clip-path`
+  on one element is the pairing Safari has drawn wrongly, so the mask rides the
+  wrapper inside the clip. The clip is what keeps the limb hard — the blur can
+  spill past the terminator but never past the shape, so the body's edge stays the
+  body's edge. Where the phase's mask would be thinner than a pixel
+  (`feather > 0.0002`), it is dropped entirely and the clip alone draws the
+  phase.
 - **The night layer is under the lit layer**, not a second shape beside it, so the
   two are one surface at two exposures. The disc's own `--moon-dark` background
   keeps it a body even where the texture is transparent at the corners. Its own
