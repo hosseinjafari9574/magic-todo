@@ -116,9 +116,10 @@ export const useTimerStore = create<TimerState>()(
         });
         /*
          * A start, whether fresh or after a pause, is the one moment the clock
-         * is visibly handed the time. Three seconds of tick-tock there, and
-         * nowhere else: a per-minute tick would talk over the session, and a
-         * tick on every phase change would fire while the clock is still armed.
+         * is visibly handed the time. Five escapement clicks over two and a bit
+         * seconds there, and nowhere else: a per-minute tick would talk over the
+         * session, and a tick on every phase change would fire while the clock
+         * is still armed.
          */
         if (soundEnabled()) playSound("tick-tock");
       },

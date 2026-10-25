@@ -62,7 +62,95 @@ function tone(ctx: AudioContext, options: ToneOptions) {
   oscillator.stop(start + duration + 0.05);
 }
 
-const PRESETS: Record<SoundName, ToneOptions[]> = {
+/**
+ * A tenth of a second of white noise, made once per context.
+ *
+ * Every mechanical tick in this file is built from it: an escapement is a
+ * collision, and a collision is broadband. Two oscillators can be tuned into a
+ * beep, but they cannot be tuned into a *click* — that needs the noise, a
+ * resonant body to give it a pitch, and a very short envelope.
+ */
+let noiseCache: { ctx: AudioContext; buffer: AudioBuffer } | null = null;
+
+function noise(ctx: AudioContext): AudioBuffer {
+  if (noiseCache?.ctx === ctx) return noiseCache.buffer;
+  const length = Math.ceil(ctx.sampleRate * 0.12);
+  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let index = 0; index < length; index += 1) {
+    data[index] = Math.random() * 2 - 1;
+  }
+  noiseCache = { ctx, buffer };
+  return buffer;
+}
+
+/**
+ * One escapement click: the strike, the case's answer, and a little weight.
+ *
+ * Three parts, because that is what the ear hears in a real clock. The *strike* —
+ * 18ms of band-limited noise, which is the pallet hitting the wheel, and the part
+ * that has to arrive first and loudest: a tick whose weight leads it is a thud.
+ * The *body* — the same noise through a narrow resonance an octave below the
+ * strike, decaying over 70ms, which is the wooden case answering. And a short sine
+ * at ~230Hz, quiet and 55ms long, for the weight a click alone does not have.
+ *
+ * `high` is the tick (leading beat) and the tock is a whole step below, the pair
+ * that makes a clock an alternating mechanism rather than a metronome.
+ */
+function escapement(ctx: AudioContext, at: number, high: boolean, gain: number) {
+  const start = ctx.currentTime + at;
+  const source = ctx.createBufferSource();
+  source.buffer = noise(ctx);
+
+  const strike = ctx.createBiquadFilter();
+  strike.type = "bandpass";
+  strike.frequency.value = high ? 2500 : 1800;
+  strike.Q.value = 1;
+  const strikeGain = ctx.createGain();
+  strikeGain.gain.setValueAtTime(0.0001, start);
+  strikeGain.gain.exponentialRampToValueAtTime(gain, start + 0.0015);
+  strikeGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.018);
+
+  const body = ctx.createBiquadFilter();
+  body.type = "bandpass";
+  body.frequency.value = high ? 1250 : 900;
+  body.Q.value = 6;
+  const bodyGain = ctx.createGain();
+  bodyGain.gain.setValueAtTime(0.0001, start);
+  bodyGain.gain.exponentialRampToValueAtTime(gain * 0.45, start + 0.005);
+  bodyGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.075);
+
+  source.connect(strike).connect(strikeGain).connect(ctx.destination);
+  source.connect(body).connect(bodyGain).connect(ctx.destination);
+  source.start(start);
+  source.stop(start + 0.14);
+
+  tone(ctx, {
+    frequency: high ? 232 : 174,
+    at,
+    duration: 0.055,
+    gain: gain * 0.14,
+  });
+}
+
+/**
+ * The clock announcing itself: five escapement clicks over two and a bit seconds.
+ *
+ * Alternating tick and tock at a walking 109bpm, with the last pair pulled back
+ * so the gesture settles instead of stopping dead. It is a start, not a
+ * countdown and not a per-minute tick: long enough that pressing play is heard,
+ * short enough that it is over before the first minute of work.
+ */
+function tickTock(ctx: AudioContext) {
+  const gap = 0.55;
+  const pattern = [true, false, true, false, true];
+  pattern.forEach((high, index) => {
+    const settle = index === pattern.length - 1 ? 0.5 : index === pattern.length - 2 ? 0.78 : 1;
+    escapement(ctx, index * gap, high, 0.32 * settle);
+  });
+}
+
+const PRESETS: Record<Exclude<SoundName, "tick-tock">, ToneOptions[]> = {
   // Gentle rising arpeggio when a task is completed.
   complete: [
     { frequency: 659.25, duration: 0.4, gain: 0.12 },
@@ -82,27 +170,15 @@ const PRESETS: Record<SoundName, ToneOptions[]> = {
   ],
   // Subtle tick used for focus start / mode switches.
   soft: [{ frequency: 523.25, duration: 0.22, gain: 0.08, type: "triangle" }],
-  /*
-   * The clock announcing itself: six wooden ticks over three seconds, a fifth
-   * apart, alternating high/low so the pair reads as a clock rather than a
-   * metronome. It is a gesture, not a countdown — long enough that starting a
-   * session feels heard, short enough that it never competes with the work it
-   * is starting. Each tick is 45ms of triangle at low gain: an escapement
-   * click, not a note.
-   */
-  "tick-tock": [
-    { frequency: 1046.5, duration: 0.045, gain: 0.055, type: "triangle" },
-    { frequency: 783.99, at: 0.5, duration: 0.045, gain: 0.05, type: "triangle" },
-    { frequency: 1046.5, at: 1, duration: 0.045, gain: 0.05, type: "triangle" },
-    { frequency: 783.99, at: 1.5, duration: 0.045, gain: 0.045, type: "triangle" },
-    { frequency: 1046.5, at: 2, duration: 0.045, gain: 0.04, type: "triangle" },
-    { frequency: 783.99, at: 2.5, duration: 0.045, gain: 0.035, type: "triangle" },
-  ],
 };
 
 export function playSound(name: SoundName) {
   const ctx = get_context();
   if (!ctx) return;
+  if (name === "tick-tock") {
+    tickTock(ctx);
+    return;
+  }
   for (const options of PRESETS[name]) tone(ctx, options);
 }
 
