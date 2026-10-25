@@ -122,18 +122,21 @@ Both were built and measured before C won; kept here so nobody re-derives them.
 The ICO must never lag the SVG — an ICO holding stale geometry is a real bug, and
 it has happened.
 
+The two helpers below are scratch: they live in `.freebuff/` (ignored, and swept
+with the other probes), so rebuild them when the mark changes rather than
+expecting them on disk.
+
 1. Rasterise `app/icon.svg` at 16/32/48 through a browser canvas and hand the
-   bytes over with [`.freebuff/receiver.js`](../.freebuff/receiver.js):
-   `node .freebuff/receiver.js` in the background, then from the page
+   bytes over with a tiny local receiver (`node .freebuff/receiver.js` in the
+   background, then from the page
    `fetch('http://127.0.0.1:3199/', {method:'POST', body: JSON.stringify({16,32,48})})`
-   with base64 PNGs. The receiver validates each payload and writes
+   with base64 PNGs). It validates each payload and writes
    `.freebuff/png-<size>.png`.
    **Do not copy base64 by hand** — that is what corrupted the 48px frame once
    (below).
-2. Build and validate: `node` [`.freebuff/mkico2.js`](../.freebuff/mkico2.js). It
-   checks each PNG's signature, chunk CRCs and inflated length, assembles the
-   container, then reads the result back and validates every frame *inside* the
-   ICO.
+2. Build and validate with `.freebuff/mkico2.js`. It checks each PNG's
+   signature, chunk CRCs and inflated length, assembles the container, then
+   reads the result back and validates every frame *inside* the ICO.
 3. Confirm the served file matches disk:
    `curl -s localhost:3100/favicon.ico -o /tmp/served.ico && cmp /tmp/served.ico public/favicon.ico`.
    An identical-size replacement is served without a rebuild; a *new path* under
@@ -147,7 +150,5 @@ entry ending exactly at EOF — while its 48px payload differed from a correct
 render in **3 bytes** and could not be decoded at all. Size, offset and signature
 checks cannot see that; `zlib.inflate` plus per-chunk CRC can. That is why
 `mkico2.js` is the only supported builder; the structural-only script and its
-payload are kept as
-[`retired-mkico-structural-only.js`](../.freebuff/retired-mkico-structural-only.js)
-and [`retired-favicon-CORRUPT-48px.b64`](../.freebuff/retired-favicon-CORRUPT-48px.b64)
-for the record, and neither is an input to anything.
+payload (`retired-mkico-structural-only.js`, `retired-favicon-CORRUPT-48px.b64`)
+are kept for the record only, and neither is an input to anything.
