@@ -313,11 +313,15 @@ export function phaseGeometry(lit: number): PhaseGeometry {
  * edge where the moon had a curve. Blurring the mask's own path instead keeps the
  * geometry: the curve is softened, never straightened.
  *
- * 1.2% of the disc is about 4px at 322px, so the surface runs out over roughly
- * 10px — the width a photograph shows, and far too narrow to become a gradient
- * ball.
+ * 2.4% of the disc is about 8px at 322px, a ramp of roughly 20px — the width a
+ * photograph shows, and far too narrow to become a gradient ball. Only the half
+ * of that ramp *inside* the terminator shows, because the clip sits on the
+ * terminator itself and the outer half falls outside the lit shape: the visible
+ * run-out at a thin phase is therefore about one standard deviation, not two.
+ * Widening this further dims the lune's edge sooner than it lengthens the fade,
+ * which is the measurement behind the 2x step from 0.012 (`.freebuff/feather-compare.mjs`).
  */
-export const MOON_TERMINATOR_FEATHER = 0.012;
+export const MOON_TERMINATOR_FEATHER = 0.024;
 
 /**
  * The lit fraction at which the feather reaches its full width.

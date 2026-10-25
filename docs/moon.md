@@ -102,7 +102,7 @@ and desktop at 1280×900).
 | `MOON_NIGHT_FALLOFF` | 0.66 | earthshine **37** luma at 0.56R → **25** at 0.86R on the phone; **38 → 29** on the desktop's 322px disc: a fall of about **9–12** luma across the unlit half |
 | `MOON_LIMB_SHADE` | 0.55 | night limb falls **13–14** luma from 0.68R to 0.92R |
 | `MOON_SCRIM_OPACITY` | 0.55 | clock contrast **7.9:1** at full moon (9.8:1 on desktop) |
-| `MOON_TERMINATOR_FEATHER` | 0.012 | the lit face runs out over **~10px** of a 322px disc, following the terminator's own curve (was one hard step) |
+| `MOON_TERMINATOR_FEATHER` | 0.024 | an **8px** blur radius on a 322px disc, so the lit face runs out over roughly **20px**, following the terminator's own curve (was one hard step) |
 
 - **0.62 brightness** puts the disc under the reading. At full moon the clock sits
   on the brightest surface the room ever shows, and the type is white; anything
@@ -137,9 +137,12 @@ and desktop at 1280×900).
   position, so the disc turns away at the far edge instead of ending as a cut-out
   poster of a moon. It rides *inside* the clipped lit layer, so it moves with the
   phase rather than sitting on the whole disc.
-- **0.012 terminator feather** is the surface's last of the light, as a blur
-  radius in disc diameters (about 4px on the 322px disc, so the surface runs out
-  over roughly 10px). The terminator is not a line on a real moon: the light
+- **0.024 terminator feather** is the surface's last of the light, as a blur
+  radius in disc diameters (about 8px on the 322px disc, so the surface runs out
+  over roughly 20px). Only the half of that ramp inside the terminator is visible:
+  the clip sits on the terminator, so the outer half falls outside the lit shape —
+  which is why widening the blur further dims the lune's edge before it lengthens
+  the fade. The terminator is not a line on a real moon: the light
   grazes the ground there, so brightness goes to zero smoothly and crater rims
   catch the last of it unevenly. Cut as a clip alone, the phase ended in one step
   from the lit face's 97 luma to the night face's 34 — a seam laid across the

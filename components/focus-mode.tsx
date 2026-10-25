@@ -391,10 +391,21 @@ export function FocusMode() {
               onExit={exit}
             />
 
-            {/* Stage: the task, a rule, then the instrument. */}
+            {/*
+             * Stage: the task, a rule, then the instrument.
+             *
+             * The bottom padding is optical, not structural. Centred between the
+             * top bar and the controls, the instrument's centre landed 31px below
+             * the viewport's on a 1280x900 window — the header is shorter than the
+             * control row, so a plain `justify-center` sits the moon low and the
+             * room reads bottom-heavy. The content centres in a box that has shrunk
+             * from below, so half of the added padding is the lift: `pb-8` over the
+             * old `py-2` raises the moon by 12px on the desktop and `pb-4` by 4px on
+             * the phone (`.freebuff/moon-bias.mjs` measures both).
+             */}
             <div
               ref={stageRef}
-              className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-9 py-2 text-center sm:gap-12"
+              className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-9 pb-4 pt-2 text-center sm:gap-12 sm:pb-8"
             >
               <div
                 ref={blockRef}
