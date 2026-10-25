@@ -32,7 +32,10 @@
  *           the old offset-disc construction could only draw a lens, and the
  *           night side's earthshine band and its fade are read again on the
  *           desktop's largest disc — on a crescent, where the 0.56R probe is
- *           inside the unlit face.
+ *           inside the unlit face. The terminator itself is walked along the
+ *           light's axis on five chords across the pole axis, so its *curve* is
+ *           measured and not only its waist: a straight ramp, which is what the
+ *           first feather was, holds one radius on every chord and fails.
  *
  *   strip   the four phases. Each mask's rotation must be the night axis from
  *           `geometry.ts` and each terminator's waist the one `|2k − 1|` gives;
@@ -695,9 +698,70 @@ async function measurePixels(spec) {
         nightResidualCount += 1;
       }
     }
+    /*
+     * The terminator's own curve, read on chords across the pole axis.
+     *
+     * The waist in the DOM says the ellipse is *defined* with `|2k − 1|`, not
+     * that the pixels carry it: a straight ramp at the same radius at the
+     * equator passes a waist check and still draws the cut across the lune that
+     * this shape replaced. Each chord walks the light's axis at a fixed `v` and
+     * finds where the surface runs out, so the reading is of the painted edge —
+     * the ellipse pulls the crossing toward the centre as `sqrt(1 − v²)`, a line
+     * does not.
+     */
+    const terminatorOn = (v) => {
+      /* Inside the limb, and inside the disc at every `v` the chord starts from. */
+      const reach = Math.sqrt(Math.max(0, 0.93 ** 2 - v * v));
+      const samples = [];
+      for (let u = reach; u >= -reach; u -= 0.006) {
+        const l = meanAt(
+          cx + (u * ux + v * vx) * radius,
+          cy + (u * uy + v * vy) * radius,
+          2,
+        );
+        if (l !== null) samples.push({ u, l });
+      }
+      /*
+       * Levels from the ends, not from a fixed offset around the crossing: a
+       * fixed offset moves with the feather and reports every phase as the same
+       * edge. The lit side is read past the clock (u ≥ 0.5, where the lune still
+       * is at a crescent) and the night side past it on the other hand (u ≤ −0.5).
+       */
+      const percentileOf = (values, fraction) => {
+        if (!values.length) return null;
+        const sorted = [...values].sort((a, b) => a - b);
+        return sorted[Math.min(sorted.length - 1, Math.floor(fraction * sorted.length))];
+      };
+      const litLevel = percentileOf(
+        samples.filter((s) => s.u >= 0.5).map((s) => s.l),
+        0.85,
+      );
+      const nightLevel = percentileOf(
+        samples.filter((s) => s.u <= -0.5).map((s) => s.l),
+        0.2,
+      );
+      if (litLevel === null || nightLevel === null || litLevel - nightLevel < 8) return null;
+      const mid = (litLevel + nightLevel) / 2;
+      /*
+       * From the lit limb inward, the first sample below the halfway level is
+       * the terminator. Taking the first rather than the steepest is what keeps
+       * the clock out of it: the type's edges are further in, and at this phase
+       * the surface has already run out before the chord reaches them.
+       */
+      for (let i = 1; i < samples.length; i += 1) {
+        if (samples[i].l > mid) continue;
+        const before = samples[i - 1];
+        const after = samples[i];
+        const t = (before.l - mid) / Math.max(1e-6, before.l - after.l);
+        return { v, u: before.u + (after.u - before.u) * t };
+      }
+      return null;
+    };
+    const terminator = [-0.55, -0.28, 0, 0.28, 0.55].map(terminatorOn);
     return {
       litSide: at(ux, uy, 0.72),
       nightSide: at(-ux, -uy, 0.72),
+      terminator,
       /*
        * The same axis, inside and outside that sample: earthshine is lit by a
        * full Earth in the viewer's direction, so it is brightest where the
@@ -1796,6 +1860,50 @@ async function main() {
 
     /* 2. Ten minutes in: the light has entered from the left. */
     await clickRoom("Start timer");
+    /*
+     * Three minutes in, before the ten-minute read: the thinnest crescent the
+     * cycle shows, and the only phase where the terminator sits far enough from
+     * the clock (0.76R) for a chord across it to be a chord of the surface. The
+     * tween that carries the phase out from zero has to have finished, hence the
+     * wait — a capture taken mid-hand-off measures two phases at once.
+     */
+    await moveClock(3 * 60_000);
+    await sleep(1500);
+    const thin = await readCycle("cycle-terminator-thin");
+    const thinLit = thin.dial.progress;
+    const chords = (thin.pixels.terminator ?? []).filter(Boolean);
+    const uAt = (v) => chords.find((row) => Math.abs(row.v - v) < 1e-6)?.u ?? null;
+    const ellipseU = (v) => Math.abs(2 * thinLit - 1) * Math.sqrt(1 - v * v);
+    const centreU = uAt(0);
+    const poleUs = [uAt(-0.55), uAt(0.55)];
+    const pull = poleUs.map((u) => (Number.isFinite(u) ? centreU - u : NaN));
+    console.log(
+      `\nterminator curve at ${fmt(thinLit * 100, 0)}% lit — ` +
+        chords.map((row) => `v ${fmt(row.v, 2)}: ${fmt(row.u, 3)}`).join(" · "),
+    );
+    record(
+      "moon/terminator-curves-toward-the-poles",
+      Number.isFinite(centreU) &&
+        pull.every((drop) => Number.isFinite(drop) && drop >= 0.05),
+      `${chords.length}/5 chords; radius ${fmt(centreU, 3)} at v=0, ` +
+        `pull ${pull.map((drop) => fmt(drop, 3)).join(" / ")} at v=±0.55 ` +
+        `(the ellipse pulls ${fmt(
+          Math.abs(2 * thinLit - 1) * (1 - Math.sqrt(1 - 0.55 * 0.55)),
+          3,
+        )}; a straight ramp pulls 0)`,
+    );
+    record(
+      "moon/terminator-follows-the-ellipse",
+      Number.isFinite(centreU) &&
+        chords.length === 5 &&
+        chords.every((row) => Math.abs(row.u - ellipseU(row.v)) <= 0.05),
+      chords
+        .map(
+          (row) =>
+            `v ${fmt(row.v, 2)}: ${fmt(row.u, 3)} (ellipse ${fmt(ellipseU(row.v), 3)})`,
+        )
+        .join(" · "),
+    );
     await moveClock(10 * 60_000);
     const waxing = await readCycle("cycle-focus-waxing");
     const waxingLit = waxing.dial.progress;
@@ -1997,7 +2105,16 @@ async function main() {
       features: [{ name: "prefers-reduced-motion", value: "reduce" }],
     });
 
-    report.cycle = { focusStart, waxing, breakStart, waning, breakEnd, returned, skipped };
+    report.cycle = {
+      focusStart,
+      thin,
+      waxing,
+      breakStart,
+      waning,
+      breakEnd,
+      returned,
+      skipped,
+    };
 
     report.room = room;
     report.gibbous = gibbous.moon;
