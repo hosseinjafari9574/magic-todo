@@ -402,10 +402,16 @@ export function FocusMode() {
              * from below, so half of the added padding is the lift: `pb-8` over the
              * old `py-2` raises the moon by 12px on the desktop and `pb-4` by 4px on
              * the phone (`.freebuff/moon-bias.mjs` measures both).
+             *
+             * The big lift needs height to spend, so it is gated on having some: in
+             * a landscape phone's 340px the stage is already shorter than its own
+             * content, and the extra 24px would come out of the title's clearance
+             * under the top bar (measured: −15px of overlap before this padding,
+             * −27px with it). Below 560px of height the stage keeps `pb-4`.
              */}
             <div
               ref={stageRef}
-              className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-9 pb-4 pt-2 text-center sm:gap-12 sm:pb-8"
+              className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-9 pb-4 pt-2 text-center sm:gap-12 [@media(min-width:640px)_and_(min-height:560px)]:pb-8"
             >
               <div
                 ref={blockRef}
