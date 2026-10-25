@@ -114,7 +114,24 @@ export function MoonBody({
   flip: boolean;
   reduceMotion: boolean;
 }) {
-  const clipId = `moon-lit-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const clipId = `moon-lit-${uid}`;
+  /*
+   * The feather's filter and mask are *elements in this document*, not an SVG
+   * image in a data URI.
+   *
+   * That is the difference between a moon and a blinking one in Firefox. A CSS
+   * mask whose value is an image is not painted until that image has decoded;
+   * the phase rewrites the mask roughly once a second, so every rewrite asked
+   * Firefox to decode a fresh SVG image, and until it finished the lit layer was
+   * fully masked out — the moon went dark and snapped back, twice on the way in
+   * and once a second after that. Chrome keeps painting through the decode, so
+   * the fault only ever showed in Firefox. A `<mask>` in the same tree is parsed
+   * as markup and only re-rasterised when its path changes: nothing to load,
+   * nothing to miss.
+   */
+  const maskId = `moon-terminator-${uid}`;
+  const blurId = `moon-terminator-blur-${uid}`;
   const [shownLit, setShownLit] = useState(lit);
   const [shownFlip, setShownFlip] = useState(flip);
   const shownRef = useRef(lit);
@@ -224,16 +241,9 @@ export function MoonBody({
    * at full and new moon, and thins it on a lune narrower than itself.
    */
   const feather = terminatorFeather(shownLit);
-  const terminatorMask =
-    feather > 0.0002
-      ? `url("data:image/svg+xml,${encodeURIComponent(
-          `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1" preserveAspectRatio="none"><defs><filter id="f" x="-0.2" y="-0.2" width="1.4" height="1.4"><feGaussianBlur stdDeviation="${feather.toFixed(4)}"/></filter></defs><path d="${litPath(
-            shownLit,
-          )}" fill="#fff" filter="url(#f)" transform="rotate(${(
-            angle + (shownFlip ? 180 : 0)
-          ).toFixed(2)} 0.5 0.5)"/></svg>`,
-        )}")`
-      : undefined;
+  const feathered = feather > 0.0002;
+  const terminatorMask = feathered ? `url(#${maskId})` : undefined;
+  const terminatorTransform = `rotate(${(angle + (shownFlip ? 180 : 0)).toFixed(2)} 0.5 0.5)`;
   return (
     <div
       data-part="disc"
@@ -248,11 +258,31 @@ export function MoonBody({
       <svg aria-hidden className="absolute size-0">
         <defs>
           <clipPath id={clipId} clipPathUnits="objectBoundingBox">
-            <path
-              d={litPath(shownLit)}
-              transform={`rotate(${angle + (shownFlip ? 180 : 0)} 0.5 0.5)`}
-            />
+            <path d={litPath(shownLit)} transform={terminatorTransform} />
           </clipPath>
+          {feathered && (
+            <>
+              <filter id={blurId} x="-0.2" y="-0.2" width="1.4" height="1.4">
+                <feGaussianBlur stdDeviation={feather.toFixed(4)} />
+              </filter>
+              <mask
+                id={maskId}
+                maskUnits="objectBoundingBox"
+                maskContentUnits="objectBoundingBox"
+                x="-0.2"
+                y="-0.2"
+                width="1.4"
+                height="1.4"
+              >
+                <path
+                  d={litPath(shownLit)}
+                  fill="#fff"
+                  filter={`url(#${blurId})`}
+                  transform={terminatorTransform}
+                />
+              </mask>
+            </>
+          )}
         </defs>
       </svg>
 
@@ -302,14 +332,7 @@ export function MoonBody({
         <div
           data-part="terminator"
           className="absolute inset-0"
-          style={{
-            maskImage: terminatorMask,
-            maskSize: "100% 100%",
-            maskRepeat: "no-repeat",
-            WebkitMaskImage: terminatorMask,
-            WebkitMaskSize: "100% 100%",
-            WebkitMaskRepeat: "no-repeat",
-          }}
+          style={{ mask: terminatorMask, WebkitMask: terminatorMask }}
         >
           <div
             data-part="surface"

@@ -162,7 +162,8 @@ and desktop at 1280×900).
 
 ```
 [data-part="disc"]          rounded-full, overflow-hidden, --moon-dark
-  svg                       the clipPath definition (objectBoundingBox)
+  svg                       the clipPath and the feathered terminator mask
+                            (both objectBoundingBox)
   [data-part="night"]       the texture at 13%, contrast-lifted, masked to 66% at the limb
   [data-part="lit"]         clip-path: url(#…)
     [data-part="terminator"] mask: the lit face's last of the light
@@ -180,12 +181,22 @@ and desktop at 1280×900).
   (`phaseGeometry`). The surface swap bought texture, not a new shape.
 - **The clip is the shape; the mask is the light.** `litPath` cuts the phase to
   the pixel, and the layer inside it carries a mask built from the *same path*,
-  blurred by `terminatorFeather` and handed over as an SVG data URI (with
-  `mask-size: 100% 100%`, so it follows the disc at every instrument size). Blurring
+  blurred by `terminatorFeather` and declared as an element in the same `<defs>`
+  as the clip (`maskUnits="objectBoundingBox"`, so it follows the disc at every
+  instrument size). Blurring
   the path rather than fading along the light's axis is the whole point: a
   straight ramp's end is a straight line, and on a crescent that line crosses the
   lune — it showed as a cut across the moon where the phase had a curve. The
   path's own blur softens the curve without ever straightening it.
+- **The mask is markup, not an image.** It used to be an SVG *data URI* with
+  `mask-size: 100% 100%`. Firefox does not paint a layer whose mask image has not
+  decoded, and the phase rewrites the mask about once a second — so every rewrite
+  asked Firefox to decode a fresh image and the lit layer went missing until it
+  finished: the moon blinked dark on arrival and again on each step of the clock.
+  Chrome keeps painting through the decode, so only Firefox ever showed it. A
+  `<mask>` element needs no decode; its path is parsed markup and only
+  re-rasterises when the path changes. `.freebuff/ff-maskcheck.mjs` reads the same
+  terminator profile, pixel for pixel, from both engines.
 - **The feather is on a child, not on the clipped layer.** `filter` + `clip-path`
   on one element is the pairing Safari has drawn wrongly, so the mask rides the
   wrapper inside the clip. The clip is what keeps the limb hard — the blur can
