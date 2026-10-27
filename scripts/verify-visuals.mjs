@@ -45,6 +45,13 @@
  *           `--moon-glyph`, hue-less; and the banked moons must be amber where
  *           the pending ones are grey.
  *
+ *   stage   the room's fit on a short viewport, where the column wants more
+ *           height than the stage has: the title block must start *below* the top
+ *           bar, and the dial is paid for out of what is left. A flat 148px dial
+ *           floor spent the title's clearance instead, putting it 19px inside the
+ *           bar on a 340px-tall landscape window — the bar's own row, on the same
+ *           line as the preset and the exit button.
+ *
  *   cycle   the whole focus → break → focus round trip, driven through the
  *           room's own controls with the clock moved under the store. The moon
  *           has to fill from the light's side and *drain from that same side*,
@@ -78,6 +85,18 @@ const TASKS_KEY = "cadence:todos:v1";
 const TIMER_KEY = "cadence:timer:v1";
 const DIALOG = '[role="dialog"][aria-label^="Focus mode"]';
 const TASK_TITLE = "Rewrite the quarterly report";
+
+/**
+ * The stages with less height than the column needs: a short laptop window, a
+ * phone in landscape, and the two heights where a flat dial floor used to put the
+ * title *inside* the top bar (`hooks/use-ring-size.ts` carries the arithmetic).
+ */
+const SHORT_STAGES = [
+  [1024, 520],
+  [844, 390],
+  [844, 340],
+  [780, 320],
+];
 
 /** One finished cycle plus a half: two banked moons, a session two thirds run. */
 const SESSIONS = 2;
@@ -530,6 +549,43 @@ function readFocusRoom() {
         : null,
     },
     tokens: { dark, glyph },
+  };
+}
+
+/**
+ * The room's fit, where the stage has less height than the column needs.
+ *
+ * The top bar is found by the button that leaves it — the row is a plain flex
+ * box with no marker of its own — and the title block by the `h1` it holds: the
+ * phase line, the title, the meta and the rule are one block, and it is that box
+ * that has to stay clear of the bar. The stage is the block's own parent, and
+ * the dial its sibling's box, which is the ring's size by construction.
+ */
+function readRoomClearance() {
+  const dialog = document.querySelector('[role="dialog"][aria-label^="Focus mode"]');
+  if (!dialog) return null;
+  const exit = [...dialog.querySelectorAll("button")].find(
+    (element) =>
+      (element.getAttribute("aria-label") || "") === "Exit focus mode" && element.offsetParent,
+  );
+  const bar = exit ? exit.parentElement : null;
+  const title = dialog.querySelector("h1");
+  const block = title ? title.parentElement : null;
+  const stage = block ? block.parentElement : null;
+  if (!bar || !block || !stage) return null;
+  const barBox = bar.getBoundingClientRect();
+  const blockBox = block.getBoundingClientRect();
+  const stageBox = stage.getBoundingClientRect();
+  const instrument = dialog.querySelector("div.relative.flex-none");
+  return {
+    clearance: blockBox.top - barBox.bottom,
+    barBottom: barBox.bottom,
+    blockTop: blockBox.top,
+    blockHeight: blockBox.height,
+    stageHeight: stageBox.height,
+    dial: instrument ? instrument.getBoundingClientRect().height : null,
+    gap: Number.parseFloat(getComputedStyle(stage).rowGap) || 0,
+    overflow: stage.scrollHeight - stage.clientHeight,
   };
 }
 
@@ -1612,6 +1668,31 @@ async function main() {
       (glyph) => glyph.litWarmth !== null && glyph.litWarmth >= 30,
     ).length;
     same("strip/lit-through-current", warmGlyphs, Math.min(SESSIONS + 1, source.cycle));
+
+    /*
+     * The room where the column is taller than the stage it sits in.
+     *
+     * Focus Mode never scrolls, so the dial is sized from the room the stage can
+     * give it (`useRingSize`) — and when even the dial's floor will not fit, the
+     * centred column overflows *upward*, out of the stage and into the top bar.
+     * That is the failure this reads for: the title block's top against the bar's
+     * bottom, on the stages where there is nothing to spare. It must clear, and
+     * the dial, the gap and the overflow are printed beside it so a clearance
+     * bought with a dial nobody can read is visible in the numbers.
+     */
+    console.log(`\nstage — the title's clearance under the top bar\n`);
+    for (const [width, height] of SHORT_STAGES) {
+      await openRoom(width, height, 1);
+      const fit = await inPage(session, readRoomClearance);
+      if (!fit) throw new Error(`the room did not render at ${width}×${height}`);
+      record(
+        `stage/clearance-${width}x${height}`,
+        fit.clearance >= 0,
+        `title block ${fmt(fit.clearance)}px below the top bar ` +
+          `(stage ${fmt(fit.stageHeight, 0)}px, gap ${fmt(fit.gap, 0)}, dial ${fmt(fit.dial, 0)}px, ` +
+          `overflow ${fmt(fit.overflow, 0)}px) at ${width}×${height}`,
+      );
+    }
 
     /*
      * The night side on the largest instrument, on the same crescent the phone

@@ -4,6 +4,10 @@ import { useEffect, useState, type RefObject } from "react";
 
 import { ORBIT_GAP } from "@/components/focus/geometry";
 
+/** The dial's smallest comfortable size, and the largest it is ever drawn. */
+const RING_FLOOR = 148;
+const RING_CEILING = 384;
+
 /**
  * The dial's size for the room it actually has.
  *
@@ -58,7 +62,24 @@ export function useRingSize({
         width - ORBIT_GAP * 2 - 24,
         height - blockHeight - gap - ORBIT_GAP * 2 - 32,
       );
-      setRingSize(Math.max(148, Math.min(384, Math.round(room))));
+      /*
+       * The floor gives way before the title does.
+       *
+       * A dial centred in a stage shorter than itself is pushed half its
+       * oversize upward — out of the stage and into the top bar. Measured at
+       * 844×340 with the desktop's 48px gap, the 148px floor put the title block
+       * 19px inside the bar — 7px even with the short-stage gap below — on the
+       * preset's and the exit button's own line (`stage/clearance` in
+       * verify:visuals).
+       *
+       * The room above already reserves 38px of air (8px of stage padding, plus
+       * 26px of orbit and 16px of margin on each side), and centring spends half
+       * of any oversize, so a dial may overrun the room by up to 64px and still
+       * leave 6px between the title block and the bar. Below that the floor is
+       * what gives; 88px is where a dial stops being one.
+       */
+      const floor = Math.max(88, Math.min(RING_FLOOR, room + 64));
+      setRingSize(Math.max(floor, Math.min(RING_CEILING, Math.round(room))));
     };
     measure();
     const observer = new ResizeObserver(measure);

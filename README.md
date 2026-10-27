@@ -260,6 +260,8 @@ local terrain rather than a smooth fill, the night side keeps its earthshine (a
 28–44 luma band with its own terrain, not a hole) and falls across it from 37 to
 26 luma as the ground turns away from Earth, the far limb turns away, and the
 clock clears 7:1 over the scrim at full moon.
+The room's own fit is read on four short stages too: the title block has to
+start below the top bar, which is what a flat dial floor used to spend.
 It starts a dev server itself, exits non-zero and lists every measurement that
 drifted, so a quarter-turn of the graduations or a token moved in one place
 fails the command rather than the design review. It also drives the whole

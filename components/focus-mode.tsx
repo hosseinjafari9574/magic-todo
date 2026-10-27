@@ -408,10 +408,17 @@ export function FocusMode() {
              * content, and the extra 24px would come out of the title's clearance
              * under the top bar (measured: −15px of overlap before this padding,
              * −27px with it). Below 560px of height the stage keeps `pb-4`.
+             *
+             * The gap between the title and the dial steps back the same way, and
+             * for the same reason: below 400px of height the room cannot hold the
+             * desktop's 48px of air, and that air is what the dial is paid out of.
+             * At 340px the wider gap left a 97px dial; the tight one gives 121px
+             * for the same 6px of clearance under the bar. `useRingSize` reads this
+             * same value back out of the stage, so the two cannot drift.
              */}
             <div
               ref={stageRef}
-              className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-9 pb-4 pt-2 text-center sm:gap-12 [@media(min-width:640px)_and_(min-height:560px)]:pb-8"
+              className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-9 pb-4 pt-2 text-center [@media(min-width:640px)_and_(min-height:401px)]:gap-12 [@media(max-height:400px)]:gap-6 [@media(min-width:640px)_and_(min-height:560px)]:pb-8"
             >
               <div
                 ref={blockRef}
