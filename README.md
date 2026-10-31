@@ -141,8 +141,9 @@ npm run prepare:moon # rebuild the moon's surface asset (needs Chrome)
   its task titles; every title is added as an ordinary task, so nothing else in
   the app has to know routines exist. The panel under the list creates, edits
   and deletes them, with undo on delete and on apply.
-- **Stats & streak** — completed today, focus minutes today, current streak and
-  a last-7-days focus chart.
+- **Stats & streak** — completed today, focus minutes today, the day's cycle
+  (how many of the four sessions are banked and how many are left before the
+  long break), current streak and a last-7-days focus chart.
 - **Sound effects** — synthesised WebAudio chimes (no assets), toggleable:
   a short tick-tock when a clock starts, then a bell for the end of a session
   and a softer pair when a break is over.

@@ -234,6 +234,25 @@
     opacity: 0.5;
   }
 
+  /*
+   * A `<select>`'s list is painted by the platform, not by this stylesheet, and
+   * it does not inherit the field's surface: the rows took the field's ivory
+   * type and paired it with the system's own white list, so the timer's task
+   * picker read as white-on-white and only the hovered row was legible. Naming
+   * both halves of every row keeps the popup in the app's palette — the same
+   * `#17171a` the dialogs use, on the same ivory as body copy — and leaves the
+   * hover highlight to the platform, where it belongs. The dark scheme on
+   * `:root` covers the list's border and scrollbar.
+   */
+  .field option {
+    background-color: var(--color-popover);
+    color: var(--color-foreground);
+  }
+
+  .field option:disabled {
+    color: var(--color-muted-foreground);
+  }
+
   .kbd {
     display: inline-flex;
     align-items: center;

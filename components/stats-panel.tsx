@@ -5,14 +5,28 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, Flame, Timer } from "lucide-react";
 
 import { currentStreak, getDay, weekActivity } from "@/lib/activity";
+import { TIMER_PRESETS } from "@/lib/constants";
 import { formatDuration } from "@/lib/format";
 import { EASE_OUT_EXPO } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+import { useTimerStore } from "@/store/use-timer-store";
 import { useTodoStore } from "@/store/use-todo-store";
 
 export function StatsPanel() {
   const activity = useTodoStore((state) => state.activity);
   const reduceMotion = useReducedMotion();
+
+  /*
+   * The day's cycle, in the timer's own terms. Read from the timer store rather
+   * than counted again from the activity log, because the card and Focus Mode
+   * both read this number: a panel that recomputed it could disagree with the
+   * clock beside it, and the count is what the fourth session's long break
+   * actually hangs on.
+   */
+  const sessions = useTimerStore((state) => state.sessions);
+  const preset = useTimerStore((state) => state.preset);
+  const { longBreakAfter } = TIMER_PRESETS[preset];
+  const untilLongBreak = Math.max(0, longBreakAfter - sessions);
 
   const today = getDay(activity);
   const streak = currentStreak(activity);
@@ -133,6 +147,37 @@ export function StatsPanel() {
             </p>
           </div>
         ))}
+      </div>
+
+      {/*
+       * How many of the cycle's sessions are in hand, and how many are left
+       * before the long break — the same four moons the card lights, at the
+       * panel's own scale, with the count spelled out for anyone who cannot see
+       * the dots.
+       */}
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-4 pb-4">
+        <span className="text-micro font-semibold uppercase text-muted-foreground">
+          Cycle
+        </span>
+        <div className="flex items-center gap-1.5" aria-hidden>
+          {Array.from({ length: longBreakAfter }).map((_, index) => (
+            <span
+              key={index}
+              className={cn(
+                "size-1.5 rounded-full transition-colors duration-300",
+                index < sessions
+                  ? "bg-achievement shadow-[0_0_8px_rgba(233,184,114,0.5)]"
+                  : "bg-ivory/[0.14]",
+              )}
+            />
+          ))}
+        </div>
+        <span className="ml-auto font-mono text-caption text-muted-foreground/85">
+          {sessions} of {longBreakAfter} ·{" "}
+          {untilLongBreak === 0
+            ? "long break ready"
+            : `${untilLongBreak} to the long break`}
+        </span>
       </div>
 
       <div className="px-4 pb-4">
