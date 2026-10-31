@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { dayKey } from "@/lib/format";
-import { normalizeTodos } from "@/lib/persist";
+import { browserStorage, normalizeTodos } from "@/lib/persist";
 import type { ActivityMap, NewTaskInput, Settings, Task } from "@/lib/types";
 import { uid } from "@/lib/format";
 
@@ -159,7 +159,7 @@ export const useTodoStore = create<TodoState>()(
       name: "cadence:todos:v1",
       version: 1,
       skipHydration: true,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(browserStorage),
       partialize: (state) => ({
         tasks: state.tasks,
         activity: state.activity,

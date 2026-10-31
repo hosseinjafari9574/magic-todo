@@ -14,6 +14,8 @@
  * (a task with no title, a day key that isn't a day key).
  */
 
+import type { StateStorage } from "zustand/middleware";
+
 import { TEMPLATE_LIMITS, TIMER_PRESETS } from "@/lib/constants";
 import { dayKey, uid } from "@/lib/format";
 import type {
@@ -25,6 +27,28 @@ import type {
   TimerMode,
   TimerPresetId,
 } from "@/lib/types";
+
+/**
+ * `localStorage` in the browser, and an inert stand-in everywhere else.
+ *
+ * zustand resolves the storage the moment `createJSONStorage` runs — at module
+ * scope, while Next is still prerendering the page — so a bare
+ * `() => localStorage` also evaluates Node's global `localStorage`, which
+ * exists there but has no file behind it and warns on every access. A storage
+ * that quietly holds nothing where there is no `window` keeps that warning out
+ * of the build and the server's own log without changing what the browser
+ * does: nothing on the server ever reads or writes persisted state, and every
+ * store hydrates on the client, after mount (see `app/page.tsx`).
+ */
+const inertStorage: StateStorage = {
+  getItem: () => null,
+  setItem: () => undefined,
+  removeItem: () => undefined,
+};
+
+export function browserStorage(): StateStorage {
+  return typeof window === "undefined" ? inertStorage : window.localStorage;
+}
 
 export interface PersistedTodos {
   tasks: Task[];

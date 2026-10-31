@@ -3,7 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 import { TIMER_PRESETS } from "@/lib/constants";
 import { dayKey } from "@/lib/format";
-import { normalizeTimer } from "@/lib/persist";
+import { browserStorage, normalizeTimer } from "@/lib/persist";
 import { playSound } from "@/lib/sound";
 import type { TimerMode, TimerPresetId } from "@/lib/types";
 import { useTodoStore } from "@/store/use-todo-store";
@@ -344,7 +344,7 @@ export const useTimerStore = create<TimerState>()(
       name: "cadence:timer:v1",
       version: 1,
       skipHydration: true,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(browserStorage),
       partialize: (state) => ({
         preset: state.preset,
         mode: state.mode,
