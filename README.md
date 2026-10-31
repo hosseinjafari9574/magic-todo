@@ -124,8 +124,13 @@ npm run prepare:moon # rebuild the moon's surface asset (needs Chrome)
   state changes on its own — but a phase change never starts a clock. Sessions
   run because you asked for one: Start, entering Focus Mode on a task (which
   starts that task's session as it opens), or completing a task while Focus
-  Mode is open on the next one. Optional sound feedback, session
-  counters, skip and reset. The card carries its own **Focus Mode** button, so
+  Mode is open on the next one. Optional sound feedback, session counters, skip
+  and reset. The cycle belongs to the day: the four sessions sit in a row only
+  until the local date changes, at which point the count starts again at one —
+  so yesterday's fourth session cannot hand out a long break today has not
+  earned. A tab left open overnight is caught at midnight, and the stored count
+  carries its own day, so a reload the next morning resets it even after the
+  browser has been closed. The card carries its own **Focus Mode** button, so
   the room is one tap from the timer rather than a scroll back up to the list,
   and it opens on the task the clock is linked to. Completed sessions and focus
   minutes are persisted per task and overall.

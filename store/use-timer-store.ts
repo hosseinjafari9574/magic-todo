@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { TIMER_PRESETS } from "@/lib/constants";
+import { dayKey } from "@/lib/format";
 import { normalizeTimer } from "@/lib/persist";
 import { playSound } from "@/lib/sound";
 import type { TimerMode, TimerPresetId } from "@/lib/types";
@@ -29,8 +30,10 @@ interface TimerState {
   /** Epoch ms at which the current session ends (while running). */
   endsAt: number | null;
   remainingMs: number;
-  /** Focus sessions completed in the current cycle (0..4). */
+  /** Focus sessions completed today (0..4); the next long break is the fourth. */
   sessions: number;
+  /** Local day the count above belongs to — a new day starts the cycle again. */
+  cycleDay: string;
   /** Focus minutes already flushed to stats for the running session. */
   flushedMs: number;
   taskId: string | null;
@@ -49,6 +52,13 @@ interface TimerState {
   setPreset: (preset: TimerPresetId) => void;
   /** Called by the engine on every tick. */
   tick: () => void;
+  /**
+   * Start the cycle again when the local date has moved on. Cheap and
+   * idempotent, so every path that reads or grows the count can call it: a
+   * reload, a click on Start, and the engine's own midnight hand-off all land
+   * here rather than each carrying its own date arithmetic.
+   */
+  rollCycleDay: () => void;
   /**
    * Session reached zero — record it, then move to the next phase *armed*:
    * the phase changes on its own, the clock waits for the user's start.
@@ -75,6 +85,7 @@ export const useTimerStore = create<TimerState>()(
       endsAt: null,
       remainingMs: TIMER_PRESETS.classic.durations.focus,
       sessions: 0,
+      cycleDay: dayKey(),
       flushedMs: 0,
       taskId: null,
       phaseEvent: null,
@@ -82,6 +93,7 @@ export const useTimerStore = create<TimerState>()(
       setTaskId: (taskId) => set({ taskId }),
 
       start: () => {
+        get().rollCycleDay();
         const state = get();
         if (state.running) return;
         const remaining =
@@ -237,6 +249,7 @@ export const useTimerStore = create<TimerState>()(
        * flourish and the announcement.
        */
       completeSession: () => {
+        get().rollCycleDay();
         const state = get();
         if (state.mode === "focus") {
           /*
@@ -292,6 +305,21 @@ export const useTimerStore = create<TimerState>()(
         });
       },
 
+      /*
+       * A cycle is a day's four sessions, not a rolling four: yesterday's third
+       * session must not buy today's long break before today has done any work.
+       * Only the count resets — the phase, the clock and the link are left
+       * exactly where the user left them, because a break that is already
+       * armed (or half spent) is still the break they are owed, and a session
+       * still running past midnight is still the session they started.
+       */
+      rollCycleDay: () => {
+        const state = get();
+        const today = dayKey();
+        if (state.cycleDay === today) return;
+        set({ cycleDay: today, sessions: 0 });
+      },
+
       syncAccrual: () => {
         const state = get();
         if (state.mode !== "focus") return;
@@ -324,6 +352,7 @@ export const useTimerStore = create<TimerState>()(
         endsAt: state.endsAt,
         remainingMs: state.remainingMs,
         sessions: state.sessions,
+        cycleDay: state.cycleDay,
         flushedMs: state.flushedMs,
         taskId: state.taskId,
       }),
@@ -332,6 +361,17 @@ export const useTimerStore = create<TimerState>()(
         ...current,
         ...normalizeTimer(persisted),
       }),
+      /*
+       * `merge` repairs the payload in memory, and the middleware never writes
+       * that repaired state back: storage keeps yesterday's count until the
+       * next click, and a payload from before the day was stored keeps carrying
+       * no day at all — which would make every following morning look like the
+       * same day, so its count would never roll. One write on hydration settles
+       * both, for the price of a single `setItem` per load.
+       */
+      onRehydrateStorage: () => () => {
+        useTimerStore.setState({});
+      },
     },
   ),
 );

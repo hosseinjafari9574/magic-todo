@@ -15,7 +15,7 @@
  */
 
 import { TEMPLATE_LIMITS, TIMER_PRESETS } from "@/lib/constants";
-import { uid } from "@/lib/format";
+import { dayKey, uid } from "@/lib/format";
 import type {
   ActivityMap,
   Priority,
@@ -43,6 +43,8 @@ export interface PersistedTimer {
   endsAt: number | null;
   remainingMs: number;
   sessions: number;
+  /** Local day (`YYYY-MM-DD`) the `sessions` count belongs to. */
+  cycleDay: string;
   flushedMs: number;
   taskId: string | null;
 }
@@ -260,13 +262,29 @@ export function normalizeTimer(value: unknown): PersistedTimer {
   const running = asBoolean(record.running, false) && endsAt !== null;
   // Nor can more focus time be banked than has actually elapsed this session.
   const elapsed = Math.max(0, duration - remainingMs);
+  /*
+   * The cycle is one day's work — four sessions buy one long break — so a count
+   * banked yesterday must not spend today's fourth session on a break nobody
+   * earned. A stored day that is not today therefore starts the count again at
+   * zero. A payload written before the day was stored says nothing about when
+   * its sessions were banked, so it keeps them and is stamped today: throwing
+   * them away could discard a cycle that was in fact mid-flight this morning,
+   * and the stamp makes every rollover after this one honest.
+   */
+  const today = dayKey();
+  const storedDay =
+    typeof record.cycleDay === "string" && DAY_KEY_PATTERN.test(record.cycleDay)
+      ? record.cycleDay
+      : null;
+  const banked = Math.min(asCount(record.sessions), presetConfig.longBreakAfter);
   return {
     preset,
     mode,
     running,
     endsAt: running ? endsAt : null,
     remainingMs,
-    sessions: Math.min(asCount(record.sessions), presetConfig.longBreakAfter),
+    sessions: storedDay === null || storedDay === today ? banked : 0,
+    cycleDay: today,
     flushedMs: Math.min(asClampedMs(record.flushedMs, elapsed, 0), elapsed),
     taskId: asString(record.taskId),
   };
